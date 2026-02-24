@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "distributed-file-sharing-system"
+version = "0.1.0"
+description = "Peer-to-peer chunk-based file sharing with hash verification"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+pythonpath = ["."]
