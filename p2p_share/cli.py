@@ -5,6 +5,7 @@ from pathlib import Path
 
 from .client import P2PClient
 from .peer import P2PPeerServer
+from .gui import launch_gui
 
 
 def parse_peer(value: str) -> tuple[str, int]:
@@ -38,6 +39,10 @@ def cmd_download(args: argparse.Namespace) -> None:
     print(f"Downloaded to {target}")
 
 
+
+def cmd_gui(args: argparse.Namespace) -> None:
+    launch_gui()
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Distributed File Sharing System (P2P)")
     sub = parser.add_subparsers(required=True)
@@ -58,6 +63,9 @@ def main() -> None:
     download.add_argument("file_id")
     download.add_argument("output", help="path to save downloaded file")
     download.set_defaults(func=cmd_download)
+
+    gui = sub.add_parser("gui", help="Launch a minimal desktop GUI")
+    gui.set_defaults(func=cmd_gui)
 
     args = parser.parse_args()
     args.func(args)

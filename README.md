@@ -59,6 +59,13 @@ echo "Hello, distributed world!" > shared/example.txt
 python -m p2p_share.cli serve ./shared --host 0.0.0.0 --port 9000
 ```
 
+### Desktop GUI
+```bash
+python -m p2p_share.cli gui
+```
+
+Use the GUI to start/stop a peer server, browse a peer catalog, and download files with a clean minimal interface.
+
 ### 3. Client Operations (Terminal 2)
 ```bash
 # List available files
