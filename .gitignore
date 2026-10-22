@@ -11,3 +11,4 @@ shared/*
 .pytest_cache/
 web/coverage/
 *.egg-info/
+web/*.tsbuildinfo
