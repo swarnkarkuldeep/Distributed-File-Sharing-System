@@ -42,22 +42,23 @@ def read_in_chunks(path: Path, chunk_size: int) -> Iterator[bytes]:
 
 
 def build_manifest(path: Path, chunk_size: int = 256 * 1024) -> FileManifest:
-    content = path.read_bytes()
     chunk_hashes: list[str] = []
-    for offset in range(0, len(content), chunk_size):
-        chunk = content[offset : offset + chunk_size]
-        chunk_hashes.append(sha256_hex(chunk))
+    whole = hashlib.sha256()
+    size = 0
+    for block in read_in_chunks(path, chunk_size):
+        chunk_hashes.append(sha256_hex(block))
+        whole.update(block)
+        size += len(block)
 
-    file_hash = sha256_hex(content)
+    file_hash = whole.hexdigest()
     return FileManifest(
         file_id=file_hash,
         file_name=path.name,
-        file_size=path.stat().st_size,
+        file_size=size,
         chunk_size=chunk_size,
         chunk_hashes=chunk_hashes,
         file_hash=file_hash,
     )
-
 
 
 def read_chunk(path: Path, chunk_size: int, index: int) -> bytes:
