@@ -156,3 +156,10 @@ def test_line_limit_counts_bytes_not_characters(server):
 
 def test_a_big_manifest_fits_in_one_message(tmp_path: Path):
     assert MAX_LINE_BYTES == 16 * 1024 * 1024
+
+
+def test_server_without_chunk_size_is_adaptive(tmp_path: Path):
+    (tmp_path / "a.bin").write_bytes(b"x" * (100 * 1024))
+    srv = P2PPeerServer(tmp_path, host="127.0.0.1", port=0)
+    srv.library.refresh()
+    assert srv.library.catalog()[0]["chunk_size"] == 16 * 1024

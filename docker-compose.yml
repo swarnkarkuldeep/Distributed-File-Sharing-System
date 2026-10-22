@@ -18,7 +18,6 @@ services:
       ROLE: uploader
       SHARE_DIR: /data/shared
       PEER_PORT: "9000"
-      CHUNK_SIZE: "16384" # small chunks so even a 2 MB file shows 128 tiles
       SEED_SAMPLE: "1"
       SEED_INDEX: "1"
     volumes:
@@ -32,7 +31,6 @@ services:
       ROLE: uploader
       SHARE_DIR: /data/shared
       PEER_PORT: "9000"
-      CHUNK_SIZE: "16384"
       SEED_SAMPLE: "1"
       SEED_INDEX: "2"
     volumes:

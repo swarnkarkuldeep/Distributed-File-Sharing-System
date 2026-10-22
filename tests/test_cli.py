@@ -55,3 +55,9 @@ def test_cli_refresh_prints_count(served, monkeypatch, capsys):
     monkeypatch.setattr("sys.argv", ["p2p", "refresh", f"127.0.0.1:{srv.bound_port}"])
     cli.main()
     assert "2 files" in capsys.readouterr().out
+
+
+def test_serve_chunk_size_is_optional_and_overrides_when_given():
+    parser = cli.build_parser()
+    assert parser.parse_args(["serve", "./shared"]).chunk_size is None
+    assert parser.parse_args(["serve", "./shared", "--chunk-size", "65536"]).chunk_size == 65536

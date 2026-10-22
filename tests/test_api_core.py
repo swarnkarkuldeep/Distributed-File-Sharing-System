@@ -28,8 +28,8 @@ def test_settings_parse_peers():
 
 def test_settings_defaults():
     s = Settings.from_env({})
-    assert s.role == "uploader" and s.peer_port == 9000 and s.chunk_size == 256 * 1024
-    assert s.peers == [] and s.seed_sample is False and s.max_upload_mb == 512
+    assert s.role == "uploader" and s.peer_port == 9000 and s.chunk_size is None
+    assert s.peers == [] and s.seed_sample is False and s.max_upload_mb == 4096
 
 
 def test_bus_assigns_increasing_seq_and_trims_history():

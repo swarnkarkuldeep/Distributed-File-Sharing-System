@@ -148,3 +148,12 @@ def test_concurrent_same_name_uploads_never_overwrite(tmp_path: Path, monkeypatc
         assert len({r.json()["file_name"] for r in results}) == 6
         assert len(c.get("/files").json()) == 6
         assert len([p for p in (tmp_path / "shared").iterdir()]) == 6
+
+
+def test_default_chunk_size_follows_the_size_class(tmp_path: Path):
+    settings = Settings(role="uploader", share_dir=tmp_path / "shared", download_dir=tmp_path / "dl", peer_port=0)
+    with TestClient(create_app(settings)) as c:
+        entry = upload(c, "a.bin", b"x" * (100 * 1024)).json()
+        assert entry["chunk_size"] == 16 * 1024 and entry["chunk_count"] == 7
+        assert "chunk_hashes" not in entry
+        assert c.get("/status").json()["chunk_size"] is None

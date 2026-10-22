@@ -54,7 +54,7 @@ def cmd_refresh(args: argparse.Namespace) -> None:
     print(f"Peer now shares {count} files")
 
 
-def main() -> None:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Distributed File Sharing System (P2P)")
     sub = parser.add_subparsers(required=True)
 
@@ -62,7 +62,8 @@ def main() -> None:
     serve.add_argument("share_dir")
     serve.add_argument("--host", default="0.0.0.0")
     serve.add_argument("--port", default=9000, type=int)
-    serve.add_argument("--chunk-size", default=256 * 1024, type=int)
+    serve.add_argument("--chunk-size", default=None, type=int,
+                       help="fixed chunk size in bytes (default: chosen per file from its size)")
     serve.set_defaults(func=cmd_serve)
 
     listing = sub.add_parser("list", help="List files shared by a peer")
@@ -81,7 +82,11 @@ def main() -> None:
     refresh.add_argument("peer", help="host:port")
     refresh.set_defaults(func=cmd_refresh)
 
-    args = parser.parse_args()
+    return parser
+
+
+def main() -> None:
+    args = build_parser().parse_args()
     args.func(args)
 
 

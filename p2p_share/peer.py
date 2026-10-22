@@ -26,11 +26,11 @@ class P2PPeerServer:
         share_dir: str | Path,
         host: str = "0.0.0.0",
         port: int = 9000,
-        chunk_size: int = 256 * 1024,
+        chunk_size: int | None = None,
         on_event: Callable[[dict], None] | None = None,
         idle_timeout_s: float = 120.0,
     ) -> None:
-        if not 1 <= chunk_size <= MAX_CHUNK_SIZE:
+        if chunk_size is not None and not 1 <= chunk_size <= MAX_CHUNK_SIZE:
             raise ValueError(f"chunk_size must be between 1 and {MAX_CHUNK_SIZE}")
         self.host = host
         self.port = port

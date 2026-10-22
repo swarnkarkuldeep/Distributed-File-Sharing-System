@@ -50,7 +50,7 @@ export type UploaderNode = "uploader" | "uploader2";
 export interface UploaderStatus {
   role: "uploader";
   peer_port: number;
-  chunk_size: number;
+  chunk_size: number | null; // null: chosen per file from its size
   file_count: number;
   tamper: TamperState | null;
 }
