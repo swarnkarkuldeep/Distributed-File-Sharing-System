@@ -1,0 +1,104 @@
+:root {
+  --bg: #0a1630;
+  --bg-deep: #060e20;
+  --ink: #eef3ff;
+  --ink-dim: rgba(238, 243, 255, 0.74);
+  --ink-faint: rgba(238, 243, 255, 0.52);
+
+  --coral: #ff8a70;
+  --aqua: #4fe3d0;
+  --violet: #8f7cff;
+  --danger: #ff5c7a;
+  --ok: #7be0a0;
+
+  --glass-fill: rgba(255, 255, 255, 0.08);
+  --glass-edge: rgba(255, 255, 255, 0.18);
+  --scrim: rgba(8, 16, 38, 0.42);
+
+  --font-sans: "Bricolage Grotesque Variable", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, Consolas, monospace;
+
+  --step--1: 0.8125rem;
+  --step-0: 1rem;
+  --step-1: 1.1875rem;
+  --step-2: 1.625rem;
+  --step-3: 2.5rem;
+  --step-4: clamp(2.5rem, 7vw, 3.75rem);
+
+  --radius-lg: 26px;
+  --radius-md: 16px;
+  --radius-sm: 9px;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --glow: var(--violet);
+  --glow-soft: rgba(143, 124, 255, 0.3);
+}
+
+[data-tone="uploader"] {
+  --glow: var(--coral);
+  --glow-soft: rgba(255, 138, 112, 0.32);
+}
+
+[data-tone="downloader"] {
+  --glow: var(--aqua);
+  --glow-soft: rgba(79, 227, 208, 0.3);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg-deep);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: var(--step-0);
+  line-height: 1.5;
+  font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+a {
+  color: var(--glow);
+}
+
+:focus-visible {
+  outline: 2px solid var(--glow);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+::selection {
+  background: var(--glow-soft);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
