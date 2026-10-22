@@ -23,7 +23,7 @@ Four containers start:
 | `uploader2` | A second peer, so the downloader has a choice | 9001 (peer protocol, this machine only) |
 | `downloader` | The downloading side, plus its API | none |
 
-Each uploader starts with a 2 MB sample file, so there is something to download straight away. Chunks are 16 KiB in the demo, so that file shows 128 tiles. See [docs/DEMO.md](docs/DEMO.md) for a five-minute walkthrough.
+Each uploader starts with a 2 MB sample file, so there is something to download straight away. That file is cut into 128 chunks, so it shows 128 tiles. See [docs/DEMO.md](docs/DEMO.md) for a five-minute walkthrough.
 
 Stop with `Ctrl+C`. `docker compose down -v` also deletes the shared files.
 
@@ -76,7 +76,18 @@ Each message is one line of JSON over TCP.
 | `REFRESH` | `REFRESHED` | Rescan the shared folder |
 | anything invalid | `ERROR` | The connection stays open and usable |
 
-A file's ID is the SHA-256 of its contents. Two files with identical bytes are listed once, with the other name shown as an alias. Lines longer than 4 MiB close the connection, and peers refuse chunk sizes above 2 MiB.
+A file's ID is the SHA-256 of its contents. The file list carries each file's summary only; the chunk hash list is sent when a file is downloaded (`GET_MANIFEST`), so the list stays small however big a file is.
+
+Chunk sizes are chosen per file from its size, so small files show many tiles and big files don't drown in tiny chunks:
+
+| File size | Chunk size | Chunks |
+|---|---|---|
+| up to 4 MiB | 16 KiB | up to 256 |
+| up to 256 MiB | 256 KiB | up to 1,024 |
+| up to 2 GiB | 1 MiB | up to 2,048 |
+| larger | 2 MiB | about 5,000 per 10 GB |
+
+Every peer must use the same table. `serve --chunk-size N` (or `CHUNK_SIZE`) forces one fixed size instead. See [docs/BENCHMARKS.md](docs/BENCHMARKS.md) for measurements. Two files with identical bytes are listed once, with the other name shown as an alias. Lines longer than 16 MiB (counted in bytes) close the connection, and peers refuse chunk sizes above 2 MiB.
 
 ### Integrity
 
@@ -92,9 +103,9 @@ Environment variables for the API containers (see `docker-compose.yml` for examp
 | `ROLE` | all | `uploader` or `downloader` | `uploader` |
 | `SHARE_DIR` | uploader | Folder to share | `./shared` |
 | `PEER_PORT` | uploader | Peer protocol port | `9000` |
-| `CHUNK_SIZE` | uploader | Bytes per chunk | `262144` |
+| `CHUNK_SIZE` | uploader | Force one fixed chunk size in bytes | unset (chosen per file) |
 | `SEED_SAMPLE`, `SEED_INDEX` | uploader | Create a 2 MB sample file if the folder is empty | off |
-| `MAX_UPLOAD_MB` | uploader | Largest accepted upload | `512` |
+| `MAX_UPLOAD_MB` | uploader | Largest accepted upload (nginx allows a little more) | `4096` |
 | `DOWNLOAD_DIR` | downloader | Where finished files go | `./downloads` |
 | `PEERS` | downloader | `Label=host:port,Label2=host:port` | none |
 
