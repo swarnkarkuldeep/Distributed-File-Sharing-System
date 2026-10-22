@@ -1,144 +1,128 @@
-# Distributed File Sharing System (Python)
+# Chunkway: peer-to-peer file sharing with verified chunks
 
-A robust **peer-to-peer file sharing** implementation demonstrating advanced systems concepts with production-ready features.
+Share a file in one browser window and watch it arrive, chunk by chunk, in another. Every chunk is checked against its SHA-256 hash on arrival, and the whole file is checked again before it is saved. You can corrupt a chunk on purpose and watch the downloader catch it and fetch it again.
 
-## 🎯 Core Concepts
+The core is a small Python peer-to-peer protocol (standard library only). A web demo (React + Vite, glass-style UI) and a one-command Docker setup sit on top of it.
 
-- **Networking**: Custom TCP socket protocol with JSON messaging
-- **Operating Systems**: Efficient chunked I/O with threaded peer service
-- **Security & Integrity**: Dual-layer SHA-256 hash verification (per-chunk and end-to-end)
-- **Distributed Architecture**: True peer-to-peer design without central dependencies
+## Run the demo
 
-## ✨ Key Features
+You need Docker Desktop. From this folder:
 
-- **🌐 Peer-to-peer architecture**: Each node can serve files directly to other peers
-- **📦 Chunk-based transfer**: Large files split into configurable fixed-size chunks (default 256 KiB)
-- **🔒 Hash verification**: 
-  - Per-chunk SHA-256 validation on every received chunk
-  - End-to-end file hash validation after reassembly
-- **⚡ Concurrent operations**: Threaded server handling multiple clients simultaneously
-- **🛡️ Data integrity**: Automatic corruption detection and prevention
-- **📝 Simple CLI**: Intuitive command-line interface for serving, listing, and downloading
-- **🔧 Configurable**: Adjustable chunk sizes, ports, and network interfaces
-
-## 🚀 Advantages
-
-### Performance Benefits
-- **Parallel downloads**: Chunk-based architecture enables concurrent chunk transfers
-- **Memory efficient**: Streams chunks without loading entire files into memory
-- **Network optimized**: Configurable chunk size adapts to different network conditions
-- **Scalable**: Handles files of any size through chunking
-
-### Reliability & Security
-- **Data integrity**: Dual hash verification prevents corrupted downloads
-- **Fault tolerance**: Failed chunks can be re-downloaded independently
-- **Tamper detection**: Any modification is immediately detected via hash mismatch
-- **Secure identification**: Files identified by cryptographic SHA-256 hashes
-
-### Architecture Benefits
-- **Decentralized**: No single point of failure
-- **Lightweight**: Minimal dependencies, pure Python implementation
-- **Cross-platform**: Works on Windows, Linux, and macOS
-- **Extensible**: Clean protocol design easy to extend with new features
-
-## 📋 Requirements
-
-- Python 3.10 or higher
-- No external dependencies (pure Python standard library)
-
-## 🏃‍♂️ Quick Start
-
-### 1. Setup Directories
 ```bash
-mkdir shared downloads
-echo "Hello, distributed world!" > shared/example.txt
+docker compose up
 ```
 
-### 2. Start Server (Terminal 1)
+Then open <http://localhost:8080> and click **Open the uploader window** and **Open the downloader window**. Put the two windows side by side.
+
+Four containers start:
+
+| Container | What it does | Host port |
+|---|---|---|
+| `web` | The React app, served by nginx | 8080 |
+| `uploader` | A peer sharing files, plus its API | 9000 (peer protocol) |
+| `uploader2` | A second peer, so the downloader has a choice | 9001 (peer protocol) |
+| `downloader` | The downloading side, plus its API | none |
+
+Each uploader starts with a 2 MB sample file, so there is something to download straight away. Chunks are 16 KiB in the demo, so that file shows 128 tiles. See [docs/DEMO.md](docs/DEMO.md) for a five-minute walkthrough.
+
+Stop with `Ctrl+C`. `docker compose down -v` also deletes the shared files.
+
+## What you can do in the windows
+
+- **Uploader:** drop files to share them, watch which chunks the downloader takes, and corrupt a chunk on purpose.
+- **Downloader:** pick a peer (Uploader or Uploader 2, or type `host:port`), download a file, and watch every chunk light up as its hash is verified. The **Demo speed** slider adds a pause per chunk. Without it, a local transfer finishes in milliseconds. Finished files can be saved to your computer from the browser.
+
+## The command line still works
+
+The demo publishes the uploaders' peer ports, so the CLI can talk to them (Python 3.10 or newer, no dependencies):
+
 ```bash
+python -m p2p_share.cli list 127.0.0.1:9000
+python -m p2p_share.cli download 127.0.0.1:9000 <FILE_ID> ./downloads/file.bin
+python -m p2p_share.cli refresh 127.0.0.1:9000
+```
+
+Or run your own peer from a folder:
+
+```bash
+mkdir shared downloads
 python -m p2p_share.cli serve ./shared --host 0.0.0.0 --port 9000
 ```
 
-### 3. Client Operations (Terminal 2)
-```bash
-# List available files
-python -m p2p_share.cli list 127.0.0.1:9000
+`download` accepts `--connections N` (parallel connections, default 4) and `--retries N` (retries per corrupted chunk, default 3). If a download stops partway, running the same command again resumes from the `.part` file next to the output path.
 
-# Download a file (replace with actual file_id from list command)
-python -m p2p_share.cli download 127.0.0.1:9000 ca26fb2c1dad349a506f07d9340556edb6b70f8beeb36dbd11207f810787223c ./downloads/downloaded_file.txt
+## How it works
+
+```
+Browser window 1  /uploader   ─┐                         ┌─ uploader   API ── TCP peer :9000 ◄──┐
+                               ├─► web (nginx :8080) ───►├─ uploader2  API ── TCP peer :9000    │ peer protocol
+Browser window 2  /downloader ─┘   serves the app,       └─ downloader API ── P2PClient ────────┘
+                                   proxies /api/<name>/
 ```
 
-## 🔧 Advanced Usage
+- `p2p_share/` is the core: `protocol.py` (newline-delimited JSON over TCP), `chunking.py` and `storage.py` (streaming manifests and the shared library), `peer.py` (threaded server), `client.py` (parallel, resumable, verifying downloader), `tamper.py` (the corrupt-a-chunk switch), `cli.py`.
+- `api/` wraps one peer or one client in a small FastAPI app and streams what happens to the browser as server-sent events. The same image runs every role, chosen by the `ROLE` environment variable.
+- `web/` is the React app. Its chunk mosaic is driven by the real events, not a timer.
 
-### Custom Configuration
+### Peer protocol
+
+Each message is one line of JSON over TCP.
+
+| Request | Response | Purpose |
+|---|---|---|
+| `GET_CATALOG` | `CATALOG` | List shared files |
+| `GET_MANIFEST` | `MANIFEST` | Chunk hashes for one file |
+| `GET_CHUNK` | `CHUNK` | One chunk, base64-encoded |
+| `REFRESH` | `REFRESHED` | Rescan the shared folder |
+| anything invalid | `ERROR` | The connection stays open and usable |
+
+A file's ID is the SHA-256 of its contents. Two files with identical bytes are listed once, with the other name shown as an alias. Lines longer than 4 MiB close the connection, and peers refuse chunk sizes above 2 MiB.
+
+### Integrity
+
+1. Each chunk's SHA-256 is checked as it arrives. A bad chunk is requested again, up to `--retries` times.
+2. The whole file's SHA-256 is checked before the `.part` file is renamed into place. A mismatch deletes the partial file.
+
+## Configuration
+
+Environment variables for the API containers (see `docker-compose.yml` for examples):
+
+| Variable | Used by | Meaning | Default |
+|---|---|---|---|
+| `ROLE` | all | `uploader` or `downloader` | `uploader` |
+| `SHARE_DIR` | uploader | Folder to share | `./shared` |
+| `PEER_PORT` | uploader | Peer protocol port | `9000` |
+| `CHUNK_SIZE` | uploader | Bytes per chunk | `262144` |
+| `SEED_SAMPLE`, `SEED_INDEX` | uploader | Create a 2 MB sample file if the folder is empty | off |
+| `MAX_UPLOAD_MB` | uploader | Largest accepted upload | `512` |
+| `DOWNLOAD_DIR` | downloader | Where finished files go | `./downloads` |
+| `PEERS` | downloader | `Label=host:port,Label2=host:port` | none |
+
+## Develop
+
 ```bash
-# Custom port and chunk size
-python -m p2p_share.cli serve ./shared --host 0.0.0.0 --port 8080 --chunk-size 524288
+pip install -e ".[api,dev]"
+python -m pytest -q                      # Python tests
 
-# Serve from different directory
-python -m p2p_share.cli serve /path/to/files --host 192.168.1.100 --port 9000
+cd web && npm install
+npm test                                 # UI tests
+npm run build                            # type-check and production build
+
+# With the stack running, check it end to end:
+python scripts/smoke.py
 ```
 
-### Multiple Peers
-You can run multiple servers on different ports/machines to create a true distributed network:
+To work on the UI with hot reload, run the three APIs locally on ports 8001 (uploader), 8002 (uploader 2) and 8003 (downloader), then `npm run dev` in `web/` and open <http://localhost:5173>. For example:
+
 ```bash
-# Peer 1
-python -m p2p_share.cli serve ./shared1 --port 9000
-
-# Peer 2  
-python -m p2p_share.cli serve ./shared2 --port 9001
-
-# Clients can connect to any peer
-python -m p2p_share.cli list 192.168.1.100:9000
-python -m p2p_share.cli list 192.168.1.101:9001
+ROLE=uploader SHARE_DIR=./shared PEER_PORT=9000 uvicorn api.main:app --port 8001
+ROLE=downloader DOWNLOAD_DIR=./downloads PEERS="Uploader=127.0.0.1:9000" uvicorn api.main:app --port 8003
 ```
 
-## 📡 Protocol Specification
+## Limits worth knowing
 
-Messages are JSON-over-TCP (newline-delimited) with the following request/response types:
-
-| Request | Response | Description |
-|---------|----------|-------------|
-| `GET_CATALOG` | `CATALOG` | Lists all available files with metadata |
-| `GET_MANIFEST` | `MANIFEST` | Gets chunk manifest for a specific file |
-| `GET_CHUNK` | `CHUNK` | Downloads a specific chunk by index |
-| `REFRESH` | `REFRESHED` | Refreshes server's file catalog |
-
-### Message Format
-- **Chunks**: Serialized as base64 in JSON for transport simplicity
-- **File IDs**: SHA-256 hash of the complete file content
-- **Chunk Hashes**: SHA-256 hash of each individual chunk
-
-## 🧪 Testing
-
-Run the test suite to verify functionality:
-```bash
-python -m pytest tests/ -v
-```
-
-## 📊 Performance Characteristics
-
-- **Chunk Size**: 256 KiB default (configurable)
-- **Hash Algorithm**: SHA-256 (cryptographically secure)
-- **Concurrent Connections**: Limited only by system resources
-- **Memory Usage**: O(chunk_size) regardless of file size
-- **Network Efficiency**: Minimal overhead with JSON+base64 encoding
-
-## 🔍 Technical Details
-
-### File Identification
-Each file is uniquely identified by its SHA-256 hash, ensuring:
-- Content-based addressing (same content = same ID)
-- Automatic deduplication
-- Tamper evidence
-
-### Chunk Verification
-Every chunk is verified independently:
-- Prevents corruption propagation
-- Enables resume/pause functionality
-- Supports parallel chunk downloads
-
-### Error Handling
-- Connection failures are gracefully handled
-- Corrupted chunks are detected and rejected
-- Network timeouts prevent hanging operations
+- This is a demo on one machine. There is no authentication or encryption, so don't expose the ports to a network you don't trust.
+- Chunks travel base64-encoded inside JSON, which adds about a third to the bytes on the wire.
+- Peers don't discover each other. The downloader is given a list of peers, and each download comes from a single peer.
+- Downloads started from the web app always get a fresh file name, so resume applies to the CLI (same output path), not to the web app.
+- The event history is kept in memory (the last 300 events per container), so restarting a container clears it.
