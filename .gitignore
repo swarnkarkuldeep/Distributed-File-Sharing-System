@@ -4,8 +4,7 @@ node_modules/
 dist/
 .superpowers/
 downloads/
-shared/*
-!shared/test.txt
+shared/
 *.part
 .venv/
 .pytest_cache/
