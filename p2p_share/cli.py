@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from .client import P2PClient
+from .client import P2PClient, ProgressEvent
 from .peer import P2PPeerServer
 
 
@@ -11,7 +11,10 @@ def parse_peer(value: str) -> tuple[str, int]:
     host, _, port = value.partition(":")
     if not host or not port:
         raise argparse.ArgumentTypeError("peer must be in host:port format")
-    return host, int(port)
+    try:
+        return host, int(port)
+    except ValueError:
+        raise argparse.ArgumentTypeError("peer port must be a number") from None
 
 
 def cmd_serve(args: argparse.Namespace) -> None:
@@ -32,10 +35,23 @@ def cmd_list(args: argparse.Namespace) -> None:
 
 def cmd_download(args: argparse.Namespace) -> None:
     host, port = parse_peer(args.peer)
-    client = P2PClient(host, port)
-    output = Path(args.output)
-    target = client.download(args.file_id, output)
-    print(f"Downloaded to {target}")
+    client = P2PClient(host, port, connections=args.connections, retries=args.retries)
+
+    def show(event: ProgressEvent) -> None:
+        if event.kind in ("chunk_ok", "resumed"):
+            percent = 100 * event.bytes_done // event.file_size if event.file_size else 100
+            print(f"\r{event.file_name}: {percent}%", end="", flush=True)
+        elif event.kind == "chunk_failed":
+            print(f"\n{event.message}", flush=True)
+
+    target = client.download(args.file_id, Path(args.output), on_progress=show)
+    print(f"\nDownloaded to {target}")
+
+
+def cmd_refresh(args: argparse.Namespace) -> None:
+    host, port = parse_peer(args.peer)
+    count = P2PClient(host, port).refresh()
+    print(f"Peer now shares {count} files")
 
 
 def main() -> None:
@@ -57,7 +73,13 @@ def main() -> None:
     download.add_argument("peer", help="host:port")
     download.add_argument("file_id")
     download.add_argument("output", help="path to save downloaded file")
+    download.add_argument("--connections", default=4, type=int, help="parallel connections")
+    download.add_argument("--retries", default=3, type=int, help="retries per corrupted chunk")
     download.set_defaults(func=cmd_download)
+
+    refresh = sub.add_parser("refresh", help="Ask a peer to rescan its shared directory")
+    refresh.add_argument("peer", help="host:port")
+    refresh.set_defaults(func=cmd_refresh)
 
     args = parser.parse_args()
     args.func(args)
