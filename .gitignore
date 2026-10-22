@@ -1,2 +1,13 @@
 __pycache__/
 *.pyc
+node_modules/
+dist/
+.superpowers/
+downloads/
+shared/*
+!shared/test.txt
+*.part
+.venv/
+.pytest_cache/
+web/coverage/
+*.egg-info/
