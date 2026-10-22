@@ -152,3 +152,25 @@ export function servingReducer(state: ServingState, event: PeerEvent): ServingSt
   const log = [{ seq: event.seq, ts: event.ts, text: describePeerEvent(event) }, ...state.log].slice(0, MAX_LOG_LINES);
   return { files, log, connections, lastSeq: event.seq };
 }
+
+// ---- Several downloads at once -------------------------------------------
+
+export interface TransfersState {
+  /** Download ids, newest first. */
+  order: string[];
+  byId: Record<string, DownloadState>;
+}
+
+export function initialTransfers(): TransfersState {
+  return { order: [], byId: {} };
+}
+
+export function transfersReducer(state: TransfersState, event: DownloadEvent): TransfersState {
+  const known = state.byId[event.download_id];
+  const next = downloadReducer(known ?? initialDownload(event.download_id), event);
+  if (known && next === known) return state;
+  return {
+    order: known ? state.order : [event.download_id, ...state.order],
+    byId: { ...state.byId, [event.download_id]: next },
+  };
+}

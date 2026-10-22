@@ -1,4 +1,12 @@
-import { describePeerEvent, downloadReducer, initialDownload, initialServing, servingReducer } from "./reducers";
+import {
+  describePeerEvent,
+  downloadReducer,
+  initialDownload,
+  initialServing,
+  initialTransfers,
+  servingReducer,
+  transfersReducer,
+} from "./reducers";
 import type { DownloadEvent, PeerEvent } from "./types";
 
 let seq = 0;
@@ -122,5 +130,16 @@ describe("describePeerEvent", () => {
 
   it("describes a catalog request", () => {
     expect(describePeerEvent(peer({ kind: "catalog" }))).toBe("Someone asked for the file list");
+  });
+});
+
+describe("transfersReducer", () => {
+  it("creates a transfer the first time it sees a download id and lists newest first", () => {
+    let s = transfersReducer(initialTransfers(), dl({ kind: "manifest", download_id: "a" }));
+    s = transfersReducer(s, dl({ kind: "manifest", download_id: "b" }));
+    s = transfersReducer(s, dl({ kind: "chunk_ok", download_id: "a", index: 0, bytes_done: 100 }));
+    expect(s.order).toEqual(["b", "a"]);
+    expect(s.byId["a"].states[0]).toBe(2);
+    expect(s.byId["b"].states[0]).toBe(0);
   });
 });
