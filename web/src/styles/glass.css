@@ -147,6 +147,8 @@
 }
 
 .dot {
+  display: inline-block;
+  flex: none;
   width: 9px;
   height: 9px;
   border-radius: 50%;
@@ -207,6 +209,11 @@
 .btn--primary:hover:not(:disabled) {
   background: var(--glow);
   filter: brightness(1.1);
+}
+
+.btn--primary .dot {
+  background: #08122a;
+  animation: none;
 }
 
 .btn--quiet {
@@ -309,6 +316,7 @@
 
 .file__name {
   overflow-wrap: anywhere;
+  color: var(--ink);
   font-weight: 600;
 }
 

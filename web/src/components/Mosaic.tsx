@@ -5,6 +5,7 @@ import { ProgressBar } from "./ProgressBar";
 const TILE = 16;
 const GAP = 4;
 const ANIMATION_MS = 450;
+const HEAL_MS = 1200; // a corrupted chunk fades from red to lit so the catch is visible even though the retry is instant
 const FALLBACK_GLOW = "#8F7CFF";
 const DANGER = "#FF5C7A";
 
@@ -34,6 +35,14 @@ function useWidth(ref: React.RefObject<HTMLElement | null>): number {
   return width;
 }
 
+function mixHex(from: string, to: string, t: number): string {
+  const parse = (hex: string) => (/^#[0-9a-f]{6}$/i.test(hex) ? [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)) : null);
+  const a = parse(from);
+  const b = parse(to);
+  if (!a || !b) return to;
+  return `rgb(${a.map((v, i) => Math.round(v + (b[i] - v) * t)).join(",")})`;
+}
+
 function roundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, radius: number) {
   ctx.beginPath();
   if (typeof ctx.roundRect === "function") ctx.roundRect(x, y, size, size, radius);
@@ -56,6 +65,7 @@ export function Mosaic({ states, label, maxTiles = 400, emptyText = "Chunks appe
   const width = useWidth(wrapRef);
   const previous = useRef<Uint8Array>(new Uint8Array(0));
   const changedAt = useRef<number[]>([]);
+  const cameFrom = useRef<number[]>([]);
 
   const verified = useMemo(() => states.reduce((n, s) => n + (s === 2 ? 1 : 0), 0), [states]);
   const tiles = useMemo(() => bucketStates(states, maxTiles), [states, maxTiles]);
@@ -72,9 +82,9 @@ export function Mosaic({ states, label, maxTiles = 400, emptyText = "Chunks appe
     const now = performance.now();
     const prev = previous.current;
     const sameShape = prev.length === tiles.length;
-    changedAt.current = Array.from(tiles, (s, i) =>
-      sameShape && prev[i] !== s ? now : (changedAt.current[i] ?? -Infinity),
-    );
+    const changed = (s: number, i: number) => sameShape && prev[i] !== s;
+    cameFrom.current = Array.from(tiles, (s, i) => (changed(s, i) ? prev[i] : (cameFrom.current[i] ?? s)));
+    changedAt.current = Array.from(tiles, (s, i) => (changed(s, i) ? now : (changedAt.current[i] ?? -Infinity)));
     previous.current = tiles;
 
     const cols = Math.max(1, Math.floor((width + GAP) / (TILE + GAP)));
@@ -95,7 +105,8 @@ export function Mosaic({ states, label, maxTiles = 400, emptyText = "Chunks appe
       for (let i = 0; i < tiles.length; i++) {
         const state = tiles[i];
         const age = time - changedAt.current[i];
-        const t = Math.min(1, Math.max(0, age / ANIMATION_MS));
+        const healing = state === 2 && cameFrom.current[i] === 3;
+        const t = Math.min(1, Math.max(0, age / (healing ? HEAL_MS : ANIMATION_MS)));
         if (t < 1) animating = true;
         let x = (i % cols) * (TILE + GAP);
         const y = Math.floor(i / cols) * (TILE + GAP);
@@ -110,7 +121,8 @@ export function Mosaic({ states, label, maxTiles = 400, emptyText = "Chunks appe
           ctx.fillStyle = glow;
           ctx.globalAlpha = 0.35 + 0.25 * Math.sin(time / 160 + i);
         } else if (state === 2) {
-          ctx.fillStyle = glow;
+          ctx.fillStyle = healing && t < 1 ? mixHex(DANGER, glow, t * t) : glow;
+          if (healing && t < 0.35) x += Math.sin(age / 26) * 3 * (1 - t / 0.35);
           if (t < 1) {
             const pop = 1 + 0.4 * (1 - t) * (1 - t);
             size = TILE * pop;
