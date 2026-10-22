@@ -23,15 +23,14 @@ function usePrefersReducedMotion(): boolean {
   return reduced;
 }
 
-function useWidth(ref: React.RefObject<HTMLElement | null>): number {
+function useWidth(el: HTMLElement | null): number {
   const [width, setWidth] = useState(640);
   useEffect(() => {
-    const el = ref.current;
     if (!el || typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(([entry]) => setWidth(Math.max(120, Math.floor(entry.contentRect.width))));
     observer.observe(el);
     return () => observer.disconnect();
-  }, [ref]);
+  }, [el]);
   return width;
 }
 
@@ -60,9 +59,9 @@ interface Props {
 /** Every chunk as a tile. Lit tiles are chunks whose SHA-256 has been checked. */
 export function Mosaic({ states, label, maxTiles = 400, emptyText = "Chunks appear here once a transfer starts." }: Props) {
   const reduced = usePrefersReducedMotion();
-  const wrapRef = useRef<HTMLDivElement>(null);
+  const [wrap, setWrap] = useState<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const width = useWidth(wrapRef);
+  const width = useWidth(wrap);
   const previous = useRef<Uint8Array>(new Uint8Array(0));
   const changedAt = useRef<number[]>([]);
   const cameFrom = useRef<number[]>([]);
@@ -152,7 +151,7 @@ export function Mosaic({ states, label, maxTiles = 400, emptyText = "Chunks appe
     return <ProgressBar value={verified} max={states.length} label={accessibleName} />;
   }
   return (
-    <div ref={wrapRef} className="mosaic">
+    <div ref={setWrap} className="mosaic">
       <canvas ref={canvasRef} role="img" aria-label={accessibleName} />
     </div>
   );

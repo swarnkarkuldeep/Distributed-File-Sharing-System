@@ -46,6 +46,14 @@ export function downloadReducer(state: DownloadState, event: DownloadEvent): Dow
     bytesDone: event.bytes_done,
   };
 
+  // The manifest event may have aged out of the server's history after a page reload,
+  // but every event carries the chunk count, so the tiles can always be rebuilt.
+  if (event.kind !== "manifest" && event.chunk_count > 0 && state.states.length !== event.chunk_count) {
+    next.states = new Uint8Array(event.chunk_count);
+    next.chunkCount = event.chunk_count;
+    if (state.status === "waiting") next.status = "running";
+  }
+
   switch (event.kind) {
     case "manifest":
       return {
@@ -57,12 +65,13 @@ export function downloadReducer(state: DownloadState, event: DownloadEvent): Dow
       };
     case "chunk_ok":
     case "chunk_failed": {
-      const states = state.states.slice();
+      const states = next.states.slice();
       if (event.index !== null && event.index < states.length) {
         states[event.index] = event.kind === "chunk_ok" ? 2 : 3;
       }
       return {
         ...next,
+        status: next.status === "waiting" ? "running" : next.status,
         states,
         failures: state.failures + (event.kind === "chunk_failed" ? 1 : 0),
         message: event.kind === "chunk_failed" ? event.message : state.message,

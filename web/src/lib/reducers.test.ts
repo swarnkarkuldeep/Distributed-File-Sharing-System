@@ -70,6 +70,17 @@ describe("downloadReducer", () => {
     expect(again.bytesDone).toBe(100);
   });
 
+  it("rebuilds the tiles from chunk events when the manifest event has aged out of the history", () => {
+    let s = initialDownload("d1");
+    s = downloadReducer(s, dl({ kind: "chunk_ok", index: 2, chunk_count: 4, bytes_done: 100 }));
+    expect(s.states.length).toBe(4);
+    expect(s.states[2]).toBe(2);
+    expect(s.status).toBe("running");
+    s = downloadReducer(s, dl({ kind: "done", chunk_count: 4, bytes_done: 400 }));
+    expect(s.status).toBe("done");
+    expect(s.states.length).toBe(4);
+  });
+
   it("ignores events for another download", () => {
     const s = downloadReducer(initialDownload("d1"), dl({ kind: "manifest", download_id: "other" }));
     expect(s.states.length).toBe(0);

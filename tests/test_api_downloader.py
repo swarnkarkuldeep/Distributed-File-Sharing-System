@@ -157,3 +157,20 @@ def test_delete_saved(client, peer):
     wait_for(client, lambda e: e.get("download_id") == did and e["kind"] == "done")
     assert client.delete("/saved/x.txt").status_code == 204
     assert client.get("/saved").json() == []
+
+
+def test_failed_download_leaves_no_part_file(client, peer, tmp_path: Path):
+    peer.tamper.arm(file_id(peer), 3, once=False)
+    did = start(client, peer, connections=1)
+    wait_for(client, lambda e: e.get("download_id") == did and e["kind"] == "error")
+    time.sleep(0.2)
+    assert list((tmp_path / "downloads").iterdir()) == []
+
+
+def test_cancelled_download_leaves_no_part_file(client, peer, tmp_path: Path):
+    did = start(client, peer, connections=1, chunk_delay_ms=100)
+    wait_for(client, lambda e: e.get("download_id") == did and e["kind"] == "chunk_ok")
+    client.delete(f"/downloads/{did}")
+    wait_for(client, lambda e: e.get("download_id") == did and e["kind"] == "cancelled")
+    time.sleep(0.2)
+    assert list((tmp_path / "downloads").iterdir()) == []

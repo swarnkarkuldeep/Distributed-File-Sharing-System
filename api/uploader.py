@@ -37,6 +37,7 @@ def mount_uploader(app: FastAPI, settings: Settings, bus: EventBus) -> None:
         on_event=on_peer_event,
     )
     app.state.peer = server
+    name_lock = threading.Lock()  # choosing a free name and claiming it must be one step
 
     def start_peer() -> None:
         settings.share_dir.mkdir(parents=True, exist_ok=True)
@@ -78,8 +79,9 @@ def mount_uploader(app: FastAPI, settings: Settings, bus: EventBus) -> None:
                     if written > limit:
                         raise HTTPException(413, f"{file.filename or 'File'} is larger than {settings.max_upload_mb} MB")
                     out.write(block)
-            target = unique_path(settings.share_dir, safe_filename(file.filename or ""))
-            tmp.replace(target)
+            with name_lock:
+                target = unique_path(settings.share_dir, safe_filename(file.filename or ""))
+                tmp.replace(target)
         finally:
             tmp.unlink(missing_ok=True)
         manifest = server.library.add_file(target)

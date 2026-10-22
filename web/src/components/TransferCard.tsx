@@ -79,7 +79,7 @@ export function TransferCard({ transfer, fileHash, onCancel }: Props) {
       )}
       {transfer.status === "error" && (
         <p className="error" role="alert">
-          {transfer.message ?? "Something went wrong."} Partial data is kept, so you can try again to resume.
+          {transfer.message ?? "Something went wrong."} Nothing was saved. Start the download again to retry.
         </p>
       )}
       {transfer.status === "done" && fileHash && (

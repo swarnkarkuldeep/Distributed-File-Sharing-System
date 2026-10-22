@@ -18,9 +18,9 @@ Four containers start:
 
 | Container | What it does | Host port |
 |---|---|---|
-| `web` | The React app, served by nginx | 8080 |
-| `uploader` | A peer sharing files, plus its API | 9000 (peer protocol) |
-| `uploader2` | A second peer, so the downloader has a choice | 9001 (peer protocol) |
+| `web` | The React app, served by nginx | 8080 (this machine only) |
+| `uploader` | A peer sharing files, plus its API | 9000 (peer protocol, this machine only) |
+| `uploader2` | A second peer, so the downloader has a choice | 9001 (peer protocol, this machine only) |
 | `downloader` | The downloading side, plus its API | none |
 
 Each uploader starts with a 2 MB sample file, so there is something to download straight away. Chunks are 16 KiB in the demo, so that file shows 128 tiles. See [docs/DEMO.md](docs/DEMO.md) for a five-minute walkthrough.
@@ -121,7 +121,7 @@ ROLE=downloader DOWNLOAD_DIR=./downloads PEERS="Uploader=127.0.0.1:9000" uvicorn
 
 ## Limits worth knowing
 
-- This is a demo on one machine. There is no authentication or encryption, so don't expose the ports to a network you don't trust.
+- This is a demo on one machine. There is no authentication or encryption, so the compose file publishes every port on 127.0.0.1 only. Change that deliberately, and only for a network you trust.
 - Chunks travel base64-encoded inside JSON, which adds about a third to the bytes on the wire.
 - Peers don't discover each other. The downloader is given a list of peers, and each download comes from a single peer.
 - Downloads started from the web app always get a fresh file name, so resume applies to the CLI (same output path), not to the web app.

@@ -117,3 +117,34 @@ def test_seed_sample_shared_on_start(tmp_path: Path):
         files = c.get("/files").json()
         assert [f["file_name"] for f in files] == ["demo-sample-1.bin"]
         assert files[0]["file_size"] == 2 * 1024 * 1024
+
+
+def test_concurrent_same_name_uploads_never_overwrite(tmp_path: Path, monkeypatch):
+    import threading
+    import time
+
+    import api.uploader as uploader_module
+
+    original = uploader_module.unique_path
+
+    def slow_unique_path(*args, **kwargs):
+        chosen = original(*args, **kwargs)
+        time.sleep(0.15)  # widen the check-then-act window so a race shows up every time
+        return chosen
+
+    monkeypatch.setattr(uploader_module, "unique_path", slow_unique_path)
+    with make_client(tmp_path) as c:
+        results: list = []
+
+        def go(i: int) -> None:
+            results.append(upload(c, "same.txt", f"content {i}".encode()))
+
+        threads = [threading.Thread(target=go, args=(i,)) for i in range(6)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        assert [r.status_code for r in results] == [201] * 6
+        assert len({r.json()["file_name"] for r in results}) == 6
+        assert len(c.get("/files").json()) == 6
+        assert len([p for p in (tmp_path / "shared").iterdir()]) == 6

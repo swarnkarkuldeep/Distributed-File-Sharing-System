@@ -97,7 +97,9 @@ def mount_downloader(app: FastAPI, settings: Settings, bus: EventBus) -> None:
             try:
                 client.download(body.file_id, destination, on_progress=publish, cancel=cancel)
             except Exception:
-                pass  # the client already published an error or cancelled event
+                # The client already published an error or cancelled event. The web app never resumes
+                # (every download gets a fresh name), so a half-written file would only waste space.
+                destination.with_name(destination.name + ".part").unlink(missing_ok=True)
             finally:
                 with cancels_lock:
                     cancels.pop(download_id, None)
