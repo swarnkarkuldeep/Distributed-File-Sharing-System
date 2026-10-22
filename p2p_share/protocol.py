@@ -11,6 +11,14 @@ class ProtocolError(Exception):
     pass
 
 
+class ConnectionClosedError(ProtocolError):
+    pass
+
+
+class MessageTooLargeError(ProtocolError):
+    pass
+
+
 def send_message(sock: socket.socket, message: dict[str, Any]) -> None:
     wire = json.dumps(message, separators=(",", ":")).encode("utf-8") + b"\n"
     sock.sendall(wire)
@@ -19,9 +27,9 @@ def send_message(sock: socket.socket, message: dict[str, Any]) -> None:
 def receive_message(sock_file) -> dict[str, Any]:
     line = sock_file.readline(MAX_LINE_BYTES + 1)
     if not line:
-        raise ProtocolError("Connection closed unexpectedly")
+        raise ConnectionClosedError("Connection closed unexpectedly")
     if len(line) > MAX_LINE_BYTES:
-        raise ProtocolError("Message too large")
+        raise MessageTooLargeError("Message too large")
     try:
         message = json.loads(line)
     except json.JSONDecodeError as exc:

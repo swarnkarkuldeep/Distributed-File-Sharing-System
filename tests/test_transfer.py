@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import socket
 import threading
-import time
 from pathlib import Path
 
 from p2p_share.client import P2PClient
@@ -26,7 +25,7 @@ def test_end_to_end_download(tmp_path: Path) -> None:
 
     worker = threading.Thread(target=server.start, daemon=True)
     worker.start()
-    time.sleep(0.25)
+    assert server.ready.wait(5)
 
     client = P2PClient("127.0.0.1", port)
     catalog = client.list_files()
