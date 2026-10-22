@@ -59,7 +59,7 @@ class P2PClient:
 
     def _open(self) -> tuple[socket.socket, object]:
         sock = socket.create_connection((self.host, self.port), timeout=self.timeout_s)
-        return sock, sock.makefile("r", encoding="utf-8")
+        return sock, sock.makefile("rb")
 
     def _ask(self, message: dict) -> dict:
         sock, file = self._open()

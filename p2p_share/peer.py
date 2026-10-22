@@ -80,7 +80,7 @@ class P2PPeerServer:
         self._emit("connect", remote)
         with conn:
             conn.settimeout(self.idle_timeout_s)
-            conn_file = conn.makefile("r", encoding="utf-8")
+            conn_file = conn.makefile("rb")
             try:
                 while True:
                     try:

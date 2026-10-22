@@ -132,3 +132,27 @@ def test_tampered_chunk_served_with_true_hash(server):
     assert h(first) != first["chunk_hash"]
     assert h(second) == second["chunk_hash"]
     assert any(e["kind"] == "tamper_served" for e in server.events)
+
+
+def test_line_limit_counts_bytes_not_characters(server):
+    # Just over the limit in bytes, but a quarter of it in characters (each emoji is 4 bytes of UTF-8).
+    c = Conn(server.bound_port)
+    payload = ("\U0001F600" * (MAX_LINE_BYTES // 4 + 1000)).encode("utf-8") + b"\n"
+    try:
+        c.sock.sendall(payload)
+    except OSError:
+        pass
+    c.sock.settimeout(10)
+    try:
+        data = c.sock.recv(1024)
+    except ConnectionResetError:
+        data = b""
+    assert data == b""  # closed, not answered with an ERROR reply
+    c.close()
+    other = Conn(server.bound_port)
+    assert other.ask({"type": "GET_CATALOG"})["ok"] is True
+    other.close()
+
+
+def test_a_big_manifest_fits_in_one_message(tmp_path: Path):
+    assert MAX_LINE_BYTES == 16 * 1024 * 1024

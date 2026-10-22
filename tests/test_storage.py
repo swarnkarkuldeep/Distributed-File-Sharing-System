@@ -90,3 +90,48 @@ def test_add_and_remove_file(tmp_path: Path):
     assert not f.exists()
     assert lib.get_manifest(m.file_id) is None
     assert lib.remove_file(m.file_id) is False
+
+
+def test_chunk_size_classes():
+    from p2p_share.chunking import chunk_size_for
+
+    mib = 1024 * 1024
+    assert chunk_size_for(0) == 16 * 1024
+    assert chunk_size_for(4 * mib) == 16 * 1024
+    assert chunk_size_for(4 * mib + 1) == 256 * 1024
+    assert chunk_size_for(256 * mib) == 256 * 1024
+    assert chunk_size_for(256 * mib + 1) == mib
+    assert chunk_size_for(2048 * mib) == mib
+    assert chunk_size_for(2048 * mib + 1) == 2 * mib
+    assert chunk_size_for(10_000 * mib) == 2 * mib
+
+
+def test_manifest_defaults_to_the_size_class(tmp_path: Path):
+    small = tmp_path / "small.bin"
+    small.write_bytes(b"x" * (100 * 1024))
+    medium = tmp_path / "medium.bin"
+    medium.write_bytes(b"y" * (5 * 1024 * 1024))
+    assert build_manifest(small).chunk_size == 16 * 1024
+    assert build_manifest(small).chunk_count == 7
+    assert build_manifest(medium).chunk_size == 256 * 1024
+    assert build_manifest(medium).chunk_count == 20
+
+
+def test_library_without_fixed_size_is_adaptive_and_fixed_size_still_overrides(tmp_path: Path):
+    (tmp_path / "a.bin").write_bytes(b"z" * (100 * 1024))
+    adaptive = SharedLibrary(tmp_path)
+    adaptive.refresh()
+    assert adaptive.catalog()[0]["chunk_size"] == 16 * 1024
+    fixed = SharedLibrary(tmp_path, chunk_size=64 * 1024)
+    fixed.refresh()
+    assert fixed.catalog()[0]["chunk_size"] == 64 * 1024
+
+
+def test_catalog_entries_omit_the_chunk_hash_list(tmp_path: Path):
+    (tmp_path / "a.bin").write_bytes(b"q" * 1000)
+    lib = SharedLibrary(tmp_path, 100)
+    lib.refresh()
+    entry = lib.catalog()[0]
+    assert "chunk_hashes" not in entry
+    assert entry["chunk_count"] == 10 and entry["file_hash"] == entry["file_id"]
+    assert len(lib.get_manifest(entry["file_id"]).chunk_hashes) == 10

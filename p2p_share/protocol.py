@@ -4,7 +4,8 @@ import json
 import socket
 from typing import Any
 
-MAX_LINE_BYTES = 4 * 1024 * 1024
+# Counted in bytes: files are opened in binary mode. Room for a manifest of tens of thousands of chunk hashes.
+MAX_LINE_BYTES = 16 * 1024 * 1024
 
 
 class ProtocolError(Exception):

@@ -19,7 +19,7 @@ def _is_shareable(path: Path) -> bool:
 
 
 class SharedLibrary:
-    def __init__(self, directory: Path, chunk_size: int = 256 * 1024) -> None:
+    def __init__(self, directory: Path, chunk_size: int | None = None) -> None:
         self.directory = directory
         self.chunk_size = chunk_size
         self._files: dict[str, SharedFile] = {}
@@ -68,7 +68,7 @@ class SharedLibrary:
         files = self._files
         entries = []
         for shared in files.values():
-            entry = shared.manifest.to_dict()
+            entry = shared.manifest.to_summary()
             entry["aliases"] = [p.name for p in shared.aliases]
             entries.append(entry)
         return entries

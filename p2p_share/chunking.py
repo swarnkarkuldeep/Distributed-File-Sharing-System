@@ -24,6 +24,32 @@ class FileManifest:
         payload["chunk_count"] = self.chunk_count
         return payload
 
+    def to_summary(self) -> dict:
+        """Everything except the per-chunk hash list, which grows with file size."""
+        payload = self.to_dict()
+        del payload["chunk_hashes"]
+        return payload
+
+
+
+_MIB = 1024 * 1024
+
+# (largest file size in the class, chunk size). Keeps every file between roughly 250 and 2,500 chunks,
+# so the hash list stays small however big the file is. Every peer must use the same table.
+CHUNK_SIZE_CLASSES: tuple[tuple[int, int], ...] = (
+    (4 * _MIB, 16 * 1024),
+    (256 * _MIB, 256 * 1024),
+    (2048 * _MIB, _MIB),
+)
+LARGEST_CHUNK_SIZE = 2 * _MIB
+
+
+def chunk_size_for(file_size: int) -> int:
+    """Chunk size for a file of this many bytes: small files get small chunks, big files big ones."""
+    for limit, chunk_size in CHUNK_SIZE_CLASSES:
+        if file_size <= limit:
+            return chunk_size
+    return LARGEST_CHUNK_SIZE
 
 
 def sha256_hex(data: bytes) -> str:
@@ -41,7 +67,9 @@ def read_in_chunks(path: Path, chunk_size: int) -> Iterator[bytes]:
 
 
 
-def build_manifest(path: Path, chunk_size: int = 256 * 1024) -> FileManifest:
+def build_manifest(path: Path, chunk_size: int | None = None) -> FileManifest:
+    """Hash a file in one streaming pass. Without chunk_size the file's size class decides it."""
+    chunk_size = chunk_size or chunk_size_for(path.stat().st_size)
     chunk_hashes: list[str] = []
     whole = hashlib.sha256()
     size = 0
