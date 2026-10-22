@@ -1,0 +1,13 @@
+.git
+.superpowers
+.remember
+docs
+tests
+shared
+downloads
+**/__pycache__
+**/*.pyc
+**/node_modules
+**/dist
+*.egg-info
+.pytest_cache

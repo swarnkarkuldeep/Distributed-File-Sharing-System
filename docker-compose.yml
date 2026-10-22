@@ -1,0 +1,69 @@
+name: p2p-share
+
+x-api: &api
+  build:
+    context: .
+    dockerfile: Dockerfile.api
+  restart: unless-stopped
+  healthcheck:
+    test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+    interval: 3s
+    timeout: 3s
+    retries: 20
+
+services:
+  uploader:
+    <<: *api
+    environment:
+      ROLE: uploader
+      SHARE_DIR: /data/shared
+      PEER_PORT: "9000"
+      CHUNK_SIZE: "16384" # small chunks so even a 2 MB file shows 128 tiles
+      SEED_SAMPLE: "1"
+      SEED_INDEX: "1"
+    volumes:
+      - shared1:/data/shared
+    ports:
+      - "9000:9000" # the CLI can still talk to this peer: python -m p2p_share.cli list 127.0.0.1:9000
+
+  uploader2:
+    <<: *api
+    environment:
+      ROLE: uploader
+      SHARE_DIR: /data/shared
+      PEER_PORT: "9000"
+      CHUNK_SIZE: "16384"
+      SEED_SAMPLE: "1"
+      SEED_INDEX: "2"
+    volumes:
+      - shared2:/data/shared
+    ports:
+      - "9001:9000"
+
+  downloader:
+    <<: *api
+    environment:
+      ROLE: downloader
+      DOWNLOAD_DIR: /data/downloads
+      PEERS: "Uploader=uploader:9000,Uploader 2=uploader2:9000"
+    volumes:
+      - downloads:/data/downloads
+
+  web:
+    build:
+      context: ./web
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      uploader:
+        condition: service_healthy
+      uploader2:
+        condition: service_healthy
+      downloader:
+        condition: service_healthy
+
+volumes:
+  shared1:
+  shared2:
+  downloads:
