@@ -4,10 +4,11 @@ import json
 import socket
 from typing import Any
 
+MAX_LINE_BYTES = 4 * 1024 * 1024
+
 
 class ProtocolError(Exception):
     pass
-
 
 
 def send_message(sock: socket.socket, message: dict[str, Any]) -> None:
@@ -15,12 +16,16 @@ def send_message(sock: socket.socket, message: dict[str, Any]) -> None:
     sock.sendall(wire)
 
 
-
 def receive_message(sock_file) -> dict[str, Any]:
-    line = sock_file.readline()
+    line = sock_file.readline(MAX_LINE_BYTES + 1)
     if not line:
         raise ProtocolError("Connection closed unexpectedly")
+    if len(line) > MAX_LINE_BYTES:
+        raise ProtocolError("Message too large")
     try:
-        return json.loads(line)
+        message = json.loads(line)
     except json.JSONDecodeError as exc:
-        raise ProtocolError(f"Invalid JSON payload: {line!r}") from exc
+        raise ProtocolError(f"Invalid JSON payload: {line[:80]!r}") from exc
+    if not isinstance(message, dict):
+        raise ProtocolError("Message must be a JSON object")
+    return message
